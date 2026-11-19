@@ -20,8 +20,13 @@ export function FunctionPlot({ source }: { source: string }) {
     const target = ref.current;
     let cancelled = false;
     setRuntimeError(null);
-    import('function-plot').then(({ default: functionPlot }) => {
+    import('function-plot').then((mod) => {
       if (cancelled) return;
+      // The package is CommonJS: depending on the bundler the function is `default` or `default.default`.
+      const m = mod as unknown as { default?: unknown };
+      const functionPlot = (typeof m.default === 'function' ? m.default : (m.default as { default?: unknown })?.default) as
+        (opts: Record<string, unknown>) => unknown;
+      if (typeof functionPlot !== 'function') throw new Error('bibliothèque de courbes indisponible.');
       try {
         target.innerHTML = '';
         const width = Math.min(560, target.clientWidth || 560);

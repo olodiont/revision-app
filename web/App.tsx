@@ -57,7 +57,7 @@ export function App() {
       <main className="flex-1 min-w-0 overflow-hidden">
         {error && <div className="m-4 rounded-md border border-danger p-3 text-danger text-sm">{error}</div>}
         {route.page === 'home' && <Home empty={tree.subjects.length === 0} />}
-        {route.page === 'exercise' && <ExerciseView key={route.id} id={route.id} onLibraryChanged={reload} />}
+        {route.page === 'exercise' && <ExerciseView key={route.id} id={route.id} tree={tree} onLibraryChanged={reload} />}
         {route.page === 'new' && (
           <NewExerciseForm
             tree={tree}
