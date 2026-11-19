@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { Id, LibraryTree, SearchHit } from '../../shared/types';
 import { api } from '../api';
 import { go } from '../App';
@@ -45,11 +45,6 @@ export function Library({ tree, selectedId, onChanged, storageActive }: Props) {
     return () => clearTimeout(t);
   }, [query]);
 
-  const chapters = useMemo(
-    () => tree.subjects.flatMap((s) => s.chapters.map((c) => ({ id: c.id, label: `${s.name} › ${c.name}` }))),
-    [tree],
-  );
-
   const act = async (fn: () => Promise<unknown>) => {
     try { await fn(); onChanged(); } catch (e) { alert((e as Error).message); }
   };
@@ -95,6 +90,7 @@ export function Library({ tree, selectedId, onChanged, storageActive }: Props) {
                   actions={[
                     ['+ chapitre', () => { const name = ask('Nom du chapitre'); if (name) void act(() => api.send('POST', '/api/chapters', { subjectId: s.id, name })); }],
                     ['Renommer', () => { const name = ask('Nouveau nom', s.name); if (name) void act(() => api.send('PATCH', `/api/subjects/${s.id}`, { name })); }],
+                    ['Exporter', () => { window.location.href = `/api/export/subject/${s.id}`; }],
                     ['Supprimer', () => {
                       if (confirm(`Supprimer la matière « ${s.name} » et tout son contenu (exercices, corrections, commentaires, fichiers) ?`)) {
                         void act(() => api.send('DELETE', `/api/subjects/${s.id}`));
@@ -158,7 +154,6 @@ export function Library({ tree, selectedId, onChanged, storageActive }: Props) {
         <a href="#/stockage" className={`block rounded px-2 py-1.5 hover:bg-sunken ${storageActive ? 'bg-accent-soft font-medium' : ''}`}>
           Stockage et réglages
         </a>
-        <span className="sr-only">{chapters.length} chapitres</span>
       </div>
     </div>
   );

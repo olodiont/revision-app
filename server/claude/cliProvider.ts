@@ -18,7 +18,8 @@ import { createInterface } from 'node:readline';
 import { ERROR_MESSAGES_FR, type ClaudeErrorCode, type ClaudeEvent, type ClaudeProvider, type ClaudeRequest } from './provider';
 
 export interface CliProviderOptions {
-  cwd: string;
+  /** Working directory of the CLI; a function so a changed data folder is picked up. */
+  cwd: string | (() => string);
   command?: string;
   spawnFn?: typeof nodeSpawn;
 }
@@ -82,7 +83,7 @@ export function createCliProvider(opts: CliProviderOptions): ClaudeProvider {
 
       if (req.signal?.aborted) { end(errorEvent('interrupted')); return ch.iterate(); }
 
-      const child = spawnFn(command, buildArgs(req), { cwd: opts.cwd, shell: false, windowsHide: true });
+      const child = spawnFn(command, buildArgs(req), { cwd: typeof opts.cwd === 'function' ? opts.cwd() : opts.cwd, shell: false, windowsHide: true });
       let stderr = '';
       let text = '';
       let sawDelta = false;

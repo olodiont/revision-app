@@ -8,7 +8,7 @@ import { createCliProvider } from './claude/cliProvider';
 const configPath = process.env.REVISION_CONFIG ?? defaultConfigPath();
 const config = loadConfig(configPath);
 ensureDataDir(config.dataDir);
-const provider = createCliProvider({ cwd: dataPaths(config.dataDir).claudeCwd });
+const provider = createCliProvider({ cwd: () => dataPaths(config.dataDir).claudeCwd });
 const app = createApp({ config, configPath, provider, openPath: openInExplorer });
 
 mountStatic(app);

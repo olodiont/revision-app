@@ -5,6 +5,8 @@ import { dataPaths, ensureDataDir } from './files/storage';
 import type { ClaudeProvider } from './claude/provider';
 import { aiRoutes } from './routes/ai';
 import { commentRoutes } from './routes/comments';
+import { exportRoutes } from './routes/export';
+import { storageRoutes } from './routes/storage';
 import { libraryRoutes } from './routes/library';
 
 export interface AppDeps {
@@ -35,6 +37,8 @@ export function createApp(deps: AppDeps): Hono {
   app.route('/api', libraryRoutes(deps));
   app.route('/api', commentRoutes(deps));
   app.route('/api', aiRoutes(deps));
+  app.route('/api', storageRoutes(deps));
+  app.route('/api', exportRoutes(deps));
   app.onError((err, c) => {
     console.error(err);
     return c.json({ message: 'Erreur interne du serveur.' }, 500);
