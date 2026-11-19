@@ -75,6 +75,7 @@ function Home({ empty }: { empty: boolean }) {
   return (
     <div className="h-full grid place-items-center p-8 text-center">
       <div className="max-w-md space-y-3">
+        <img src="/logo.svg" alt="" className="mx-auto h-16 w-16" />
         <h1 className="text-2xl font-semibold">Révision</h1>
         <p className="text-muted">
           {empty

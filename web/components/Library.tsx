@@ -59,7 +59,9 @@ export function Library({ tree, selectedId, onChanged, storageActive }: Props) {
     <div className="flex flex-col h-full">
       <div className="p-3 border-b border-line space-y-2">
         <div className="flex items-center justify-between">
-          <a href="#/" className="font-semibold tracking-tight">Révision</a>
+          <a href="#/" className="flex items-center gap-2 font-semibold tracking-tight">
+            <img src="/logo.svg" alt="" className="h-6 w-6" />Révision
+          </a>
           <button className="btn btn-ghost text-xs" onClick={addSubject}>+ matière</button>
         </div>
         <input
