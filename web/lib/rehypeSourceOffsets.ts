@@ -12,7 +12,7 @@
 
 import { alignedRuns } from './align';
 
-export interface Highlight { start: number; end: number; commentId: number; active: boolean }
+export interface Highlight { start: number; end: number; commentId: number; active: boolean; resolved?: boolean }
 export const DIAGRAM_LANGS = new Set(['mermaid', 'function-plot', 'svg']);
 
 type Node = any;
@@ -32,13 +32,19 @@ const textOf = (node: Node): string =>
 export function rehypeSourceOffsets(opts: { source: string; highlights?: Highlight[] }) {
   const { source } = opts;
   const highlights = opts.highlights ?? [];
-  const touches = (start: number, end: number) => highlights.some((h) => h.start < end && start < h.end);
+  const markClasses = (h: Highlight) => [...(h.active ? ['active'] : []), ...(h.resolved ? ['resolved'] : [])];
 
-  const blockProps = (p: { start: number; end: number }, extra: string[] = []) => ({
-    dataBlockStart: p.start,
-    dataBlockEnd: p.end,
-    className: [...extra, ...(touches(p.start, p.end) ? ['commented'] : [])],
-  });
+  /** A formula, code block or diagram covered by a comment is tinted as a whole and reopens that comment on click. */
+  const blockProps = (p: { start: number; end: number }, extra: string[] = []) => {
+    const hits = highlights.filter((h) => h.start < p.end && p.start < h.end);
+    const h = hits.find((x) => x.active) ?? hits[0];
+    return {
+      dataBlockStart: p.start,
+      dataBlockEnd: p.end,
+      ...(h ? { dataCommentId: h.commentId } : {}),
+      className: [...extra, ...(h ? ['commented', ...markClasses(h)] : [])],
+    };
+  };
 
   /** Splits a text value found in source [from, to) into spans / marks carrying their real source offsets. */
   const segmentText = (value: string, from: number, to: number): Node[] =>
@@ -63,7 +69,7 @@ export function rehypeSourceOffsets(opts: { source: string; highlights?: Highlig
         const h = covering.find((x) => x.active) ?? covering.reduce((x, y) => (y.start > x.start ? y : x));
         out.push({
           type: 'element', tagName: 'mark',
-          properties: { dataS: a, dataCommentId: h.commentId, className: h.active ? ['active'] : [] },
+          properties: { dataS: a, dataCommentId: h.commentId, className: markClasses(h) },
           children: [text],
         });
       } else {

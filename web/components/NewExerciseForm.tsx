@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Exercise, Id, LibraryTree } from '../../shared/types';
 import { api } from '../api';
+import { FilePicker } from './FilePicker';
 
 interface Props { tree: LibraryTree; chapterId: Id; onCreated: (id: Id) => void }
 
@@ -56,9 +57,8 @@ export function NewExerciseForm({ tree, chapterId, onCreated }: Props) {
             placeholder="Colle l'énoncé ici, ou joins une photo / un PDF / un Word ci-dessous." />
         </label>
         <div className="space-y-1">
-          <span className="text-sm font-medium">Fichiers (photo, PDF, Word, texte)</span>
-          <input type="file" multiple accept={ACCEPT} onChange={(e) => setFiles([...(e.target.files ?? [])])} className="block text-sm" />
-          {files.length > 0 && <p className="text-xs text-muted">{files.map((f) => f.name).join(', ')}</p>}
+          <span className="text-sm font-medium">Fichiers de l'énoncé (facultatif)</span>
+          <FilePicker files={files} onChange={setFiles} accept={ACCEPT} />
         </div>
         {error && <p className="text-sm text-danger">{error}</p>}
         {rejected.length > 0 && (

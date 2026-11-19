@@ -9,9 +9,10 @@ import { useAi } from '../lib/useAi';
 import { CommentsPanel } from './CommentsPanel';
 import { CommentThread } from './CommentThread';
 import { DiffView } from './DiffView';
+import { FilePicker } from './FilePicker';
 import { Markdown } from './Markdown';
 import { Modal } from './Modal';
-import { NewCommentCard } from './NewCommentCard';
+import { NewCommentCard, PendingCommentCard } from './NewCommentCard';
 import { SelectionPopover } from './SelectionPopover';
 import { VersionBar, versionLabel } from './VersionBar';
 
@@ -29,6 +30,8 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
   const [activeId, setActiveId] = useState<Id | null>(null);
   const [selection, setSelection] = useState<{ range: SourceRange; rect: DOMRect } | null>(null);
   const [draft, setDraft] = useState<SourceRange | null>(null);
+  /** Questions sent on a new passage, waiting for Claude: kept on screen until saved, never cancelled by another action. */
+  const [pendings, setPendings] = useState<{ key: string; range: SourceRange; question: string }[]>([]);
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [testMode, setTestMode] = useState(false);
   const [revealed, setRevealed] = useState(0);
@@ -73,10 +76,13 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
   const highlights = useMemo(() => {
     if (!isCurrent || testMode) return [];
     return comments
-      .filter((c) => c.kind === 'passage' && c.status === 'open' && c.anchor)
-      .map((c) => ({ start: c.anchor!.start, end: c.anchor!.end, commentId: c.id, active: c.id === activeId }))
-      .concat(draft ? [{ start: draft.start, end: draft.end, commentId: -1, active: true }] : []);
-  }, [comments, activeId, isCurrent, testMode, draft]);
+      .filter((c) => c.kind === 'passage' && c.status !== 'detached' && c.anchor)
+      .map((c) => ({
+        start: c.anchor!.start, end: c.anchor!.end, commentId: c.id, active: c.id === activeId, resolved: c.status === 'resolved',
+      }))
+      .concat(pendings.map((p) => ({ start: p.range.start, end: p.range.end, commentId: -1, active: false, resolved: false })))
+      .concat(draft ? [{ start: draft.start, end: draft.end, commentId: -1, active: true, resolved: false }] : []);
+  }, [comments, activeId, isCurrent, testMode, draft, pendings]);
 
   // ----- selection → "Commenter" -----
   const onMouseUp = () => {
@@ -98,18 +104,25 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
     setSelection(null);
     setActiveId(null);
     window.getSelection()?.removeAllRanges();
-    ai.dismiss('new');
   };
 
   // ----- AI actions -----
   const sendNewComment = (question: string) => {
     if (!draft || !current) return;
-    const anchor = createAnchor(current.markdown, draft.start, draft.end, draft.kind);
-    void ai.run<{ comment: Comment }>('new', '/api/comments', { exerciseId: id, anchor, question }, async (r) => {
+    const range = draft;
+    const anchor = createAnchor(current.markdown, range.start, range.end, range.kind);
+    const key = `new-${Date.now()}`;
+    setPendings((p) => [...p, { key, range, question }]);
+    setDraft(null);
+    void ai.run<{ comment: Comment }>(key, '/api/comments', { exerciseId: id, anchor, question }, async (r) => {
       await reload();
-      setDraft(null);
+      setPendings((p) => p.filter((x) => x.key !== key));
       setActiveId(r.comment.id);
-    }).then((r) => { if (!r) void reload(); });
+    });
+  };
+  const dropPending = (key: string) => {
+    ai.dismiss(key);
+    setPendings((p) => p.filter((x) => x.key !== key));
   };
 
   const ask = (c: Comment, question: string) =>
@@ -324,13 +337,13 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
                       source={shown!.markdown}
                       highlights={highlights}
                       onMarkClick={(cid) => { if (cid > 0) { setActiveId(cid); setDraft(null); } }}
-                      onBlockClick={(r) => { if (isCurrent) startDraft({ ...r, kind: 'block' }); }}
                     />
                   )}
                 </div>
                 {isCurrent && !testMode && (
                   <p className="mt-6 text-xs text-muted">
-                    Astuce : surligne un passage (ou clique sur une formule / un schéma) pour poser une question dessus.
+                    Astuce : sélectionne à la souris n'importe quel passage pour poser une question dessus. Clique sur un passage
+                    surligné en jaune pour rouvrir son commentaire.
                   </p>
                 )}
               </>
@@ -347,20 +360,35 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
               correctionRef={correctionRef}
               scrollRef={scrollRef}
               renderThread={renderThread}
-              layoutKey={`${activeId}-${comments.length}`}
-              draft={draft ? {
-                start: draft.start,
-                node: (
-                  <NewCommentCard
-                    quote={current.markdown.slice(draft.start, draft.end)}
-                    task={ai.tasks.new}
-                    onSend={sendNewComment}
-                    onDiagram={() => sendNewComment('Fais un schéma qui explique ce passage.')}
-                    onCancel={() => { setDraft(null); ai.dismiss('new'); }}
-                    onRetry={() => ai.retry('new')}
-                  />
-                ),
-              } : null}
+              layoutKey={`${activeId}-${comments.length}-${pendings.length}`}
+              activeId={activeId}
+              extras={[
+                ...pendings.map((p) => ({
+                  key: p.key,
+                  start: p.range.start,
+                  node: (
+                    <PendingCommentCard
+                      quote={current.markdown.slice(p.range.start, p.range.end)}
+                      question={p.question}
+                      task={ai.tasks[p.key]}
+                      onRetry={() => ai.retry(p.key)}
+                      onCancel={() => dropPending(p.key)}
+                    />
+                  ),
+                })),
+                ...(draft ? [{
+                  key: 'draft',
+                  start: draft.start,
+                  node: (
+                    <NewCommentCard
+                      quote={current.markdown.slice(draft.start, draft.end)}
+                      onSend={sendNewComment}
+                      onDiagram={() => sendNewComment('Fais un schéma qui explique ce passage.')}
+                      onCancel={() => setDraft(null)}
+                    />
+                  ),
+                }] : []),
+              ]}
             />
           )}
         </aside>
@@ -403,8 +431,10 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
         <Modal title="Vérifie ma réponse" onClose={() => setModal(null)}>
           <textarea className="field min-h-32" autoFocus value={answerText} onChange={(e) => setAnswerText(e.target.value)}
             placeholder="Écris ta réponse, ou joins une photo de ta copie." />
-          <input type="file" multiple accept=".png,.jpg,.jpeg,.webp,.pdf" className="mt-2 block text-sm"
-            onChange={(e) => setAnswerFiles([...(e.target.files ?? [])])} />
+          <div className="mt-3">
+            <FilePicker files={answerFiles} onChange={setAnswerFiles} accept=".png,.jpg,.jpeg,.webp,.pdf"
+              label="Ajouter une photo de ta copie" hint="Photo ou PDF, clique ici ou glisse le fichier" />
+          </div>
           <div className="mt-4 flex justify-end gap-2">
             <button className="btn" onClick={() => setModal(null)}>Annuler</button>
             <button className="btn btn-primary" disabled={!answerText.trim() && !answerFiles.length} onClick={check}>Envoyer à Claude</button>

@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import type { Comment, Id } from '../../shared/types';
 
 interface Props {
@@ -8,8 +8,10 @@ interface Props {
   /** Element both columns scroll in; tops are measured relative to it. */
   scrollRef: RefObject<HTMLElement | null>;
   renderThread: (c: Comment) => ReactNode;
-  /** A card being written for a new selection, positioned at that source offset. */
-  draft: { start: number; node: ReactNode } | null;
+  /** Cards not backed by a saved comment yet (question being written, question waiting for Claude). */
+  extras: { key: string; start: number; node: ReactNode }[];
+  /** The opened comment: shown next to its passage even when it is resolved, and scrolled into view. */
+  activeId: Id | null;
   layoutKey: unknown;
   /** false on narrow screens: cards are listed in order instead of aligned with their passage. */
   aligned: boolean;
@@ -27,22 +29,25 @@ function topOfOffset(root: HTMLElement, offset: number, base: number): number | 
   return best ? best.el.getBoundingClientRect().top - base : null;
 }
 
-export function CommentsPanel({ comments, correctionRef, scrollRef, renderThread, draft, layoutKey, aligned }: Props) {
+export function CommentsPanel({ comments, correctionRef, scrollRef, renderThread, extras, activeId, layoutKey, aligned }: Props) {
   const panelRef = useRef<HTMLDivElement>(null);
   const cardRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [tops, setTops] = useState<Record<string, number>>({});
   const [height, setHeight] = useState(0);
   const [showResolved, setShowResolved] = useState(false);
 
-  const open = comments.filter((c) => c.kind === 'passage' && c.status === 'open' && c.anchor);
-  const resolved = comments.filter((c) => c.kind === 'passage' && c.status === 'resolved');
+  const isActive = (c: Comment) => c.id === activeId;
+  // Open comments, plus a resolved one while it is opened again, sit next to their passage.
+  const inline = comments.filter((c) => c.kind === 'passage' && c.anchor
+    && (c.status === 'open' || (c.status === 'resolved' && isActive(c))));
+  const resolved = comments.filter((c) => c.kind === 'passage' && c.status === 'resolved' && !isActive(c));
   const detached = comments.filter((c) => c.kind === 'passage' && c.status === 'detached');
   const checks = comments.filter((c) => c.kind === 'check-answer');
 
-  type Item = { key: string; start: number };
+  type Item = { key: string; start: number; node: () => ReactNode };
   const items: Item[] = [
-    ...open.map((c) => ({ key: `c${c.id}`, start: c.anchor!.start })),
-    ...(draft ? [{ key: 'draft', start: draft.start }] : []),
+    ...inline.map((c) => ({ key: `c${c.id}`, start: c.anchor!.start, node: () => renderThread(c) })),
+    ...extras.map((x) => ({ key: x.key, start: x.start, node: () => x.node })),
   ].sort((a, b) => a.start - b.start);
 
   useLayoutEffect(() => {
@@ -70,6 +75,13 @@ export function CommentsPanel({ comments, correctionRef, scrollRef, renderThread
     return () => ro.disconnect();
   });
 
+  // Bring the opened comment into view (needed on narrow screens, where comments are listed below the correction).
+  useEffect(() => {
+    if (activeId === null) return;
+    const t = setTimeout(() => cardRefs.current[`c${activeId}`]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 60);
+    return () => clearTimeout(t);
+  }, [activeId]);
+
   void scrollRef;
   void layoutKey;
 
@@ -77,36 +89,31 @@ export function CommentsPanel({ comments, correctionRef, scrollRef, renderThread
     <div ref={panelRef} className="relative">
       {aligned ? (
         <div className="relative" style={{ height }}>
-          {items.map((it) => {
-            const c = open.find((x) => `c${x.id}` === it.key);
-            return (
-              <div key={it.key} ref={(el) => { cardRefs.current[it.key] = el; }} className="absolute left-0 right-0 transition-[top] duration-150"
-                style={{ top: tops[it.key] ?? 0 }}>
-                {it.key === 'draft' ? draft!.node : c && renderThread(c)}
-              </div>
-            );
-          })}
+          {items.map((it) => (
+            <div key={it.key} ref={(el) => { cardRefs.current[it.key] = el; }} className="absolute left-0 right-0 transition-[top] duration-150"
+              style={{ top: tops[it.key] ?? 0 }}>
+              {it.node()}
+            </div>
+          ))}
         </div>
       ) : (
         <div className="space-y-2">
           {items.length > 0 && <p className="text-sm font-medium text-muted">Commentaires</p>}
-          {items.map((it) => {
-            const c = open.find((x) => `c${x.id}` === it.key);
-            return <div key={it.key}>{it.key === 'draft' ? draft!.node : c && renderThread(c)}</div>;
-          })}
+          {items.map((it) => <div key={it.key} ref={(el) => { cardRefs.current[it.key] = el; }}>{it.node()}</div>)}
         </div>
       )}
 
       <Section title={`✓ ${resolved.length} résolu${resolved.length > 1 ? 's' : ''}`} hidden={!resolved.length}
         open={showResolved} onToggle={() => setShowResolved((s) => !s)}>
+        <p className="text-xs text-muted">Toujours surlignés en jaune très pâle : clique sur le passage pour les rouvrir.</p>
         {resolved.map((c) => <div key={c.id}>{renderThread(c)}</div>)}
       </Section>
       <Section title="Commentaires détachés" hidden={!detached.length} open>
         <p className="text-xs text-muted">Leur passage n'existe plus dans la correction actuelle.</p>
-        {detached.map((c) => <div key={c.id}>{renderThread(c)}</div>)}
+        {detached.map((c) => <div key={c.id} ref={(el) => { cardRefs.current[`c${c.id}`] = el; }}>{renderThread(c)}</div>)}
       </Section>
       <Section title="Mes réponses vérifiées" hidden={!checks.length} open>
-        {checks.map((c) => <div key={c.id}>{renderThread(c)}</div>)}
+        {checks.map((c) => <div key={c.id} ref={(el) => { cardRefs.current[`c${c.id}`] = el; }}>{renderThread(c)}</div>)}
       </Section>
     </div>
   );
@@ -125,5 +132,3 @@ function Section({ title, hidden, open, onToggle, children }: {
     </div>
   );
 }
-
-export type { Id };

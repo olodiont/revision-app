@@ -11,8 +11,9 @@
   --color-accent: #2f6f62;
   --color-accent-ink: #ffffff;
   --color-accent-soft: #dcebe6;
-  --color-mark: #fbe7a6;
-  --color-mark-active: #f5c84c;
+  --color-mark: #fcefbf;
+  --color-mark-resolved: #fdf6dc;
+  --color-mark-active: #f7d56e;
   --color-danger: #a8402f;
   --color-ok: #3d7a3a;
   --font-sans: "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -31,7 +32,8 @@
     --color-accent: #6fb3a3;
     --color-accent-ink: #10201c;
     --color-accent-soft: #24403a;
-    --color-mark: #5a4a1a;
+    --color-mark: #4a3f1c;
+    --color-mark-resolved: #3a3420;
     --color-mark-active: #8a6d16;
     --color-danger: #e08a78;
     --color-ok: #8cc488;
@@ -55,10 +57,15 @@ body { background: var(--color-bg); color: var(--color-ink); font-family: var(--
 .prose-rev th, .prose-rev td { border: 1px solid var(--color-line); padding: .3em .6em; }
 .prose-rev blockquote { border-left: 3px solid var(--color-line); padding-left: 1em; color: var(--color-muted); }
 .prose-rev .katex-display { overflow-x: auto; overflow-y: hidden; padding: .2em 0; }
-.prose-rev mark[data-comment-id] { background: var(--color-mark); color: inherit; border-radius: 2px; cursor: pointer; }
+/* Commented passages: pale yellow; the open comment's passage darker; resolved ones lighter. Click reopens. */
+.prose-rev mark[data-comment-id] { background: var(--color-mark); color: inherit; border-radius: 2px; cursor: pointer; padding: 0 1px; }
+.prose-rev mark[data-comment-id].resolved { background: var(--color-mark-resolved); }
 .prose-rev mark[data-comment-id].active { background: var(--color-mark-active); }
-.prose-rev [data-block-start].commented { outline: 2px solid var(--color-mark-active); outline-offset: 3px; border-radius: 4px; }
-.prose-rev [data-block-start]:not(pre):hover { outline: 1px dashed var(--color-line); outline-offset: 3px; cursor: pointer; }
+.prose-rev mark[data-comment-id]:hover { box-shadow: 0 1px 0 var(--color-mark-active); }
+.prose-rev mark[data-comment-id="-1"] { cursor: default; }
+.prose-rev [data-block-start].commented { background: var(--color-mark); border-radius: 6px; cursor: pointer; }
+.prose-rev [data-block-start].commented.resolved { background: var(--color-mark-resolved); }
+.prose-rev [data-block-start].commented.active { background: var(--color-mark-active); }
 .prose-sm { font-size: .95rem; line-height: 1.6; }
 
 /* highlight.js tokens, theme-aware */

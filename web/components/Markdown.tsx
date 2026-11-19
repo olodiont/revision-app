@@ -12,9 +12,7 @@ import { SafeSvg } from './diagrams/SafeSvg';
 interface Props {
   source: string;
   highlights?: Highlight[];
-  /** Called when the user clicks a math formula or a diagram (whole-block comment). */
-  onBlockClick?: (range: { start: number; end: number }) => void;
-  /** Called when the user clicks highlighted text belonging to a comment. */
+  /** Called when the user clicks a passage (text, formula or diagram) that carries a comment. */
   onMarkClick?: (commentId: number) => void;
   className?: string;
 }
@@ -36,7 +34,7 @@ function DiagramDiv(props: ComponentProps<'div'> & { node?: unknown }) {
 
 const components = { div: DiagramDiv };
 
-export const Markdown = memo(function Markdown({ source, highlights, onBlockClick, onMarkClick, className = '' }: Props) {
+export const Markdown = memo(function Markdown({ source, highlights, onMarkClick, className = '' }: Props) {
   const rehypePlugins = useMemo(
     () => [
       [rehypeSourceOffsets, { source, highlights }],
@@ -47,13 +45,10 @@ export const Markdown = memo(function Markdown({ source, highlights, onBlockClic
   );
 
   const onClick = (e: MouseEvent<HTMLDivElement>) => {
-    const target = e.target as HTMLElement;
-    const mark = target.closest<HTMLElement>('mark[data-comment-id]');
-    if (mark && onMarkClick) { onMarkClick(Number(mark.dataset.commentId)); return; }
-    const block = target.closest<HTMLElement>('[data-block-start]');
-    if (block && block.tagName !== 'PRE' && onBlockClick && !window.getSelection()?.toString()) {
-      onBlockClick({ start: Number(block.dataset.blockStart), end: Number(block.dataset.blockEnd) });
-    }
+    // A drag that selects text also ends with a click: only a plain click reopens a comment.
+    if (window.getSelection()?.toString()) return;
+    const hit = (e.target as HTMLElement).closest<HTMLElement>('[data-comment-id]');
+    if (hit && onMarkClick) onMarkClick(Number(hit.dataset.commentId));
   };
 
   return (
