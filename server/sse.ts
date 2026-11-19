@@ -13,10 +13,13 @@ export function streamProvider(
   provider: ClaudeProvider,
   request: Omit<ClaudeRequest, 'signal'>,
   onDone: (fullText: string) => unknown | Promise<unknown>,
+  /** Cleanup when the call does not finish successfully (error, interruption, closed tab). */
+  onFail?: () => void,
 ) {
   return streamSSE(c, async (stream) => {
     const ac = new AbortController();
     stream.onAbort(() => ac.abort());
+    let succeeded = false;
     try {
       for await (const e of provider.send({ ...request, signal: ac.signal })) {
         if (ac.signal.aborted) return;
@@ -24,6 +27,7 @@ export function streamProvider(
           await stream.writeSSE({ event: 'delta', data: JSON.stringify({ text: e.text }) });
         } else if (e.type === 'done') {
           const payload = await onDone(e.fullText);
+          succeeded = true;
           await stream.writeSSE({ event: 'done', data: JSON.stringify(payload) });
           return;
         } else {
@@ -37,6 +41,10 @@ export function streamProvider(
     } catch (err) {
       console.error(err);
       await stream.writeSSE({ event: 'error', data: JSON.stringify({ code: 'unknown', message: ERROR_MESSAGES_FR.unknown }) });
+    } finally {
+      if (!succeeded) {
+        try { onFail?.(); } catch (err) { console.error(err); }
+      }
     }
   });
 }

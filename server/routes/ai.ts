@@ -1,3 +1,4 @@
+import { rmSync } from 'node:fs';
 import { Hono, type Context } from 'hono';
 import { applyReplacement, createAnchor, isInsideRange, reanchor } from '../../shared/anchor';
 import type { Anchor, Comment, CorrectionVersion, Id } from '../../shared/types';
@@ -44,8 +45,8 @@ export function reanchorAll(
 export function aiRoutes(deps: AppDeps): Hono {
   const r = new Hono();
   const ctx = () => ({ dataDir: deps.config.dataDir, model: deps.config.model });
-  const run = (c: Context, action: AiAction, onDone: (text: string) => unknown) =>
-    streamProvider(c, deps.provider, buildRequest(action, ctx()), onDone);
+  const run = (c: Context, action: AiAction, onDone: (text: string) => unknown, onFail?: () => void) =>
+    streamProvider(c, deps.provider, buildRequest(action, ctx()), onDone, onFail);
 
   /** Loads what most actions need: exercise, attachments, current version. */
   const load = (exerciseId: Id) => withDb(deps, (db) => {
@@ -111,17 +112,15 @@ export function aiRoutes(deps: AppDeps): Hono {
     if (!base) return notFound(c);
     if (!base.current) return noVersion(c);
     const current = base.current;
-    const comment = withDb(deps, (db) => {
-      const cm = repo.createComment(db, { exerciseId, versionId: current.id, anchor, kind: 'passage' });
-      repo.addMessage(db, cm.id, 'user', question);
-      return cm;
-    });
+    // Nothing is stored until Claude has answered: a retry after a failure never duplicates anything.
     return run(c, {
       kind: 'comment', exercise: base.exercise, attachments: base.attachments, current: current.markdown,
       quote: anchor.exact, thread: [], question,
     }, (text) => withDb(deps, (db) => {
-      repo.addMessage(db, comment.id, 'assistant', text.trim());
-      return { comment: repo.getComment(db, comment.id), messages: repo.listMessages(db, comment.id) };
+      const cm = repo.createComment(db, { exerciseId, versionId: current.id, anchor, kind: 'passage' });
+      repo.addMessage(db, cm.id, 'user', question);
+      repo.addMessage(db, cm.id, 'assistant', text.trim());
+      return { comment: repo.getComment(db, cm.id), messages: repo.listMessages(db, cm.id) };
     }));
   });
 
@@ -130,11 +129,11 @@ export function aiRoutes(deps: AppDeps): Hono {
     const ld = loadComment(Number(c.req.param('id')));
     if (!ld || !ld.current) return notFound(c);
     const { comment } = ld;
-    withDb(deps, (db) => repo.addMessage(db, comment.id, 'user', question));
     return run(c, {
       kind: 'comment', exercise: ld.exercise, attachments: ld.attachments, current: ld.current.markdown,
       quote: comment.anchor?.exact ?? '', thread: ld.thread, question,
     }, (text) => withDb(deps, (db) => {
+      repo.addMessage(db, comment.id, 'user', question);
       repo.addMessage(db, comment.id, 'assistant', text.trim());
       return { messages: repo.listMessages(db, comment.id) };
     }));
@@ -146,11 +145,11 @@ export function aiRoutes(deps: AppDeps): Hono {
     if (!ld || !ld.current) return notFound(c);
     const { comment } = ld;
     const label = request?.trim() ? `Schéma demandé : ${request.trim()}` : 'Schéma demandé';
-    withDb(deps, (db) => repo.addMessage(db, comment.id, 'user', label));
     return run(c, {
       kind: 'diagram', exercise: ld.exercise, attachments: ld.attachments, current: ld.current.markdown,
       quote: comment.anchor?.exact ?? '', thread: ld.thread, request: request?.trim() || null,
     }, (text) => withDb(deps, (db) => {
+      repo.addMessage(db, comment.id, 'user', label);
       repo.addMessage(db, comment.id, 'assistant', text.trim());
       return { messages: repo.listMessages(db, comment.id) };
     }));
@@ -171,19 +170,29 @@ export function aiRoutes(deps: AppDeps): Hono {
 
   r.post('/comments/:id/fix/accept', async (c) => {
     const commentId = Number(c.req.param('id'));
-    const { start, end, after } = await c.req.json<{ start: number; end: number; after: string }>();
+    const { start, end, before, after } = await c.req.json<{ start: number; end: number; before: string; after: string }>();
     const res = withDb(deps, (db) => {
       const cm = repo.getComment(db, commentId);
       if (!cm) return null;
       const current = repo.currentVersion(db, cm.exerciseId);
-      if (!current || start < 0 || end > current.markdown.length || start > end) return 'bad' as const;
+      // The proposal was computed on a given text: refuse it if that text is no longer at that place.
+      if (!current || typeof before !== 'string' || start < 0 || start > end || current.markdown.slice(start, end) !== before) {
+        return 'bad' as const;
+      }
       const markdown = applyReplacement(current.markdown, start, end, after);
-      const version = repo.addVersion(db, {
-        exerciseId: cm.exerciseId, markdown, reason: 'fix', triggerCommentId: cm.id, instruction: null,
-      });
-      const triggerAnchor = createAnchor(markdown, start, start + after.length, cm.anchor?.kind ?? 'text');
-      const comments = reanchorAll(db, cm.exerciseId, version, { start, end: start + after.length }, { id: cm.id, anchor: triggerAnchor });
-      return { version, comments };
+      db.exec('BEGIN');
+      try {
+        const version = repo.addVersion(db, {
+          exerciseId: cm.exerciseId, markdown, reason: 'fix', triggerCommentId: cm.id, instruction: null,
+        });
+        const triggerAnchor = createAnchor(markdown, start, start + after.length, cm.anchor?.kind ?? 'text');
+        const comments = reanchorAll(db, cm.exerciseId, version, { start, end: start + after.length }, { id: cm.id, anchor: triggerAnchor });
+        db.exec('COMMIT');
+        return { version, comments };
+      } catch (err) {
+        db.exec('ROLLBACK');
+        throw err;
+      }
     });
     if (res === null) return notFound(c);
     if (res === 'bad') return c.json({ message: 'La correction a changé entre-temps : redemande la modification.' }, 409);
@@ -224,17 +233,14 @@ export function aiRoutes(deps: AppDeps): Hono {
     }
     const answerFiles = saved.map((s) => absolutePath(deps.config.dataDir, s.relPath));
     const userText = [answerText, ...saved.map((s) => `📎 ${s.fileName}`)].filter(Boolean).join('\n');
-    const comment = withDb(deps, (db) => {
-      const cm = repo.createComment(db, { exerciseId: id, versionId: current.id, anchor: null, kind: 'check-answer' });
-      repo.addMessage(db, cm.id, 'user', userText);
-      return cm;
-    });
     return run(c, {
       kind: 'check', exercise: base.exercise, attachments: base.attachments, current: current.markdown, answerText, answerFiles,
     }, (text) => withDb(deps, (db) => {
-      repo.addMessage(db, comment.id, 'assistant', text.trim());
-      return { comment: repo.getComment(db, comment.id), messages: repo.listMessages(db, comment.id) };
-    }));
+      const cm = repo.createComment(db, { exerciseId: id, versionId: current.id, anchor: null, kind: 'check-answer' });
+      repo.addMessage(db, cm.id, 'user', userText);
+      repo.addMessage(db, cm.id, 'assistant', text.trim());
+      return { comment: repo.getComment(db, cm.id), messages: repo.listMessages(db, cm.id) };
+    }), () => answerFiles.forEach((f) => rmSync(f, { force: true })));
   });
 
   return r;

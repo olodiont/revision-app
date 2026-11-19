@@ -27,6 +27,8 @@ export function CommentThread({
   comment, messages, active, task, onActivate, onAsk, onDiagram, onFix, onToggleResolved, onDelete, onRetry,
 }: Props) {
   const [draft, setDraft] = useState('');
+  /** Question sent but not yet answered: shown until Claude's answer is saved (it is stored only then). */
+  const [pending, setPending] = useState<string | null>(null);
   const busy = !!task?.running;
   const first = messages.find((m) => m.role === 'user');
 
@@ -50,6 +52,7 @@ export function CommentThread({
   const send = () => {
     const q = draft.trim();
     if (!q || busy) return;
+    setPending(q);
     onAsk(q);
     setDraft('');
   };
@@ -73,6 +76,7 @@ export function CommentThread({
               : <Markdown source={m.content} className="prose-sm" />}
           </div>
         ))}
+        {task && pending && <div className="rounded-md bg-sunken px-2.5 py-1.5 whitespace-pre-wrap opacity-80">{pending}</div>}
         {task && (task.running || task.text) && (
           <div className="opacity-80">
             {task.text ? <Markdown source={task.text} className="prose-sm" /> : <p className="text-muted">Claude réfléchit…</p>}
@@ -99,10 +103,10 @@ export function CommentThread({
           <button className="btn btn-primary" disabled={busy || !draft.trim()} onClick={send}>Envoyer</button>
           {comment.anchor && (
             <button className="btn" disabled={busy} title="Claude dessine un schéma de ce passage"
-              onClick={() => { onDiagram(draft.trim()); setDraft(''); }}>Schéma ici</button>
+              onClick={() => { setPending(draft.trim() ? `Schéma demandé : ${draft.trim()}` : 'Schéma demandé'); onDiagram(draft.trim()); setDraft(''); }}>Schéma ici</button>
           )}
           {onFix && comment.anchor && comment.status !== 'detached' && (
-            <button className="btn" disabled={busy} title="Claude propose une nouvelle version de ce passage" onClick={onFix}>
+            <button className="btn" disabled={busy} title="Claude propose une nouvelle version de ce passage" onClick={() => { setPending(null); onFix(); }}>
               Corriger la correction
             </button>
           )}

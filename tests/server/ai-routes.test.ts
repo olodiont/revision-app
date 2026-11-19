@@ -89,14 +89,13 @@ test('follow-up message sends the previous messages of the same thread', async (
   expect(t.provider.calls.at(-1)!.prompt).toContain('Q-UN');
 });
 
-test('comment on failed answer keeps the comment and the user message only', async () => {
+test('comment on failed answer stores nothing (no orphan question)', async () => {
   const t = await withVersion(() => [{ type: 'error', code: 'unknown', message: 'Erreur de Claude Code.' }]);
   const start = CORR.indexOf('on dérive');
   const events = await sse(t.app, '/api/comments', { exerciseId: t.ex.id, anchor: createAnchor(CORR, start, start + 9, 'text'), question: 'Q' });
   expect(events.at(-1)!.event).toBe('error');
   const detail = (await t.json('GET', `/api/exercises/${t.ex.id}`)).body;
-  expect(detail.comments).toHaveLength(1);
-  expect(detail.messagesByComment[detail.comments[0].id].map((m: any) => m.role)).toEqual(['user']);
+  expect(detail.comments).toEqual([]);
 });
 
 test('diagram request stores the diagram answer in the thread', async () => {
@@ -117,7 +116,7 @@ test('fix/accept creates version 2, resolves trigger, marks overlapping comment 
   expect(proposal.after).toBe('on dérive : du = (1/x) dx');
   expect((await t.json('GET', `/api/exercises/${t.ex.id}`)).body.versions).toHaveLength(1);
 
-  const acc = (await t.json('POST', `/api/comments/${trigger.id}/fix/accept`, { start: proposal.start, end: proposal.end, after: proposal.after })).body;
+  const acc = (await t.json('POST', `/api/comments/${trigger.id}/fix/accept`, { start: proposal.start, end: proposal.end, before: proposal.before, after: proposal.after })).body;
   expect(acc.version).toMatchObject({ number: 2, reason: 'fix', triggerCommentId: trigger.id });
   expect(acc.version.markdown).toContain('on dérive : du = (1/x) dx');
   const byId = Object.fromEntries(acc.comments.map((c: any) => [c.id, c]));

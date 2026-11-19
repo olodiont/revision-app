@@ -10,6 +10,8 @@
  * Must run before rehype-katex and rehype-highlight.
  */
 
+import { alignedRuns } from './align';
+
 export interface Highlight { start: number; end: number; commentId: number; active: boolean }
 export const DIAGRAM_LANGS = new Set(['mermaid', 'function-plot', 'svg']);
 
@@ -38,8 +40,12 @@ export function rehypeSourceOffsets(opts: { source: string; highlights?: Highlig
     className: [...extra, ...(touches(p.start, p.end) ? ['commented'] : [])],
   });
 
-  /** Splits a text value starting at source offset `s` into spans / marks. */
-  const segmentText = (value: string, s: number): Node[] => {
+  /** Splits a text value found in source [from, to) into spans / marks carrying their real source offsets. */
+  const segmentText = (value: string, from: number, to: number): Node[] =>
+    alignedRuns(value, source, from, to).flatMap((run) => segmentRun(run.text, run.start));
+
+  /** Splits a run whose characters are contiguous in the source (starting at `s`) at highlight boundaries. */
+  const segmentRun = (value: string, s: number): Node[] => {
     const e = s + value.length;
     const cuts = new Set<number>([s, e]);
     for (const h of highlights) {
@@ -78,7 +84,7 @@ export function rehypeSourceOffsets(opts: { source: string; highlights?: Highlig
     if (node.type === 'text') {
       const p = pos(node);
       if (!p || !node.value) return [node];
-      return segmentText(node.value, p.start);
+      return segmentText(node.value, p.start, p.end);
     }
     if (node.type !== 'element') {
       visitChildren(node);
@@ -119,8 +125,8 @@ export function rehypeSourceOffsets(opts: { source: string; highlights?: Highlig
     // Inline code: its text has no position; locate it inside the backticks.
     if (node.tagName === 'code' && parent?.tagName !== 'pre' && p) {
       const value = textOf(node);
-      const at = source.slice(p.start, p.end).indexOf(value);
-      if (value && at !== -1) node.children = segmentText(value, p.start + at);
+      const ticks = /^`+\s?/.exec(source.slice(p.start, p.end))?.[0].length ?? 0;
+      if (value) node.children = segmentText(value, p.start + ticks, p.end);
       return [node];
     }
 

@@ -141,8 +141,8 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
     if (!proposal) return;
     try {
       if (proposal.kind === 'fix') {
-        const { commentId, start, end, after } = proposal.data;
-        await api.send('POST', `/api/comments/${commentId}/fix/accept`, { start, end, after });
+        const { commentId, start, end, before, after } = proposal.data;
+        await api.send('POST', `/api/comments/${commentId}/fix/accept`, { start, end, before, after });
       } else {
         await api.send('POST', `/api/exercises/${id}/regenerate/accept`, { proposal: proposal.after, instruction: proposal.instruction });
       }

@@ -24,15 +24,15 @@ test('diagram block is a commentable block covering the whole fence', () => {
   const { container } = render(<Markdown source={src} />);
   const block = container.querySelector<HTMLElement>('[data-diagram]')!;
   expect(src.slice(Number(block.dataset.blockStart), Number(block.dataset.blockEnd)).startsWith('```svg')).toBe(true);
-  expect(container.querySelector('circle')).not.toBeNull();
+  expect(decodeURIComponent(container.querySelector('img')!.getAttribute('src')!)).toContain('<circle');
 });
 
 test('SafeSvg strips <script> and onload attributes', () => {
   const { container } = render(<SafeSvg source={'<svg onload="alert(1)" viewBox="0 0 1 1"><script>alert(2)</script><rect width="1" height="1"/></svg>'} />);
-  const html = container.innerHTML;
-  expect(html).not.toContain('<script');
-  expect(html).not.toContain('onload');
-  expect(container.querySelector('rect')).not.toBeNull();
+  const svg = decodeURIComponent(container.querySelector('img')!.getAttribute('src')!);
+  expect(svg).not.toContain('<script');
+  expect(svg).not.toContain('onload');
+  expect(svg).toContain('<rect');
 });
 
 test('SafeSvg shows an error for content that is not an svg', () => {

@@ -57,7 +57,7 @@ export const Markdown = memo(function Markdown({ source, highlights, onBlockClic
   };
 
   return (
-    <div className={`prose-rev ${className}`} onClick={onClick}>
+    <div className={`prose-rev ${className}`} onClick={onClick} data-source={source}>
       <ReactMarkdown remarkPlugins={[remarkGfm, remarkMath]} rehypePlugins={rehypePlugins} components={components}>
         {source}
       </ReactMarkdown>

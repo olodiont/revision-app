@@ -3,7 +3,15 @@
  * using the data-s / data-block-* / data-code-start attributes written by rehypeSourceOffsets.
  */
 
+import { alignOffsets } from './align';
+
 export interface SourceRange { start: number; end: number; kind: 'text' | 'block' }
+
+/** The Markdown source rendered in this container (written by <Markdown> as data-source). */
+function sourceOf(container: HTMLElement): string {
+  return container.closest<HTMLElement>('[data-source]')?.dataset.source
+    ?? container.querySelector<HTMLElement>('[data-source]')?.dataset.source ?? '';
+}
 
 function textLengthBetween(root: Node, node: Node, offset: number): number {
   const r = document.createRange();
@@ -44,7 +52,13 @@ function pointToOffset(
   if (block && container.contains(block)) {
     if (block.tagName === 'PRE' && block.dataset.codeStart !== undefined) {
       const code = block.querySelector('code') ?? block;
-      return { offset: Number(block.dataset.codeStart) + textLengthBetween(code, n, o), block: false };
+      const k = textLengthBetween(code, n, o);
+      const text = code.textContent ?? '';
+      // Code inside lists or blockquotes carries indentation / "> " in the source: align to skip it.
+      const offs = alignOffsets(text, sourceOf(container), Number(block.dataset.codeStart), Number(block.dataset.blockEnd));
+      if (!offs.length) return { offset: Number(block.dataset.codeStart), block: false };
+      const offset = k < offs.length ? offs[k] : offs[offs.length - 1] + 1;
+      return { offset, block: false };
     }
     return { offset: Number(side === 'start' ? block.dataset.blockStart : block.dataset.blockEnd), block: true };
   }
