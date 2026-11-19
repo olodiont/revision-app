@@ -9,31 +9,40 @@ import { answer, createFakeProvider } from '../server/claude/fakeProvider';
 import { defaultConfigPath, loadConfig } from '../server/config';
 import { ensureDataDir } from '../server/files/storage';
 
-const CORRECTION = `## Étape 1 : choisir la méthode
+const FENCE = '```';
+// String.raw keeps the LaTeX backslashes as they are.
+const CORRECTION = String.raw`## Outils utiles
 
-On intègre par parties : on pose $u = \\ln x$ et $dv = dx$.
+- **Intégration par parties** : $\int_a^b u\,v' = [u\,v]_a^b - \int_a^b u'\,v$.
+- On dérive la partie qui se simplifie (logarithme, polynôme), on intègre l'autre.
 
-## Étape 2 : dériver et intégrer
+## Exercice 1
 
-Alors $du = \\frac{dx}{x}$ et $v = x$.
+> Calculer $\int_1^e \ln x \, dx$.
+
+### Correction
+
+On pose $u = \ln x$ et $v' = 1$, donc $u' = \frac{1}{x}$ et $v = x$.
 
 $$
-\\int_1^e \\ln x \\, dx = \\big[x \\ln x\\big]_1^e - \\int_1^e 1 \\, dx
+\int_1^e \ln x \, dx = \big[x \ln x\big]_1^e - \int_1^e 1 \, dx = e - (e - 1) = 1
 $$
 
-## Étape 3 : conclure
+## Exercice 2
 
-$$
-\\int_1^e \\ln x \\, dx = e - (e - 1) = 1
-$$
+> Calculer $\int_0^1 x e^x \, dx$.
+
+### Correction
+
+On pose $u = x$ et $v' = e^x$ : $\int_0^1 x e^x dx = [x e^x]_0^1 - \int_0^1 e^x dx = e - (e - 1) = 1$.
 
 En Python on peut vérifier :
 
-\`\`\`python
-from math import log, e
+${FENCE}python
+from math import exp
 n = 100000
-print(sum(log(1 + i * (e - 1) / n) for i in range(n)) * (e - 1) / n)
-\`\`\``;
+print(sum((i / n) * exp(i / n) for i in range(n)) / n)
+${FENCE}`;
 
 const provider = createFakeProvider((req) => {
   const p = req.prompt;

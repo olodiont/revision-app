@@ -83,6 +83,11 @@ test('generate and regenerate ask for the correction to be laid out exercise by 
     expect(p).toContain('exercice par exercice');
     expect(p).toContain('juste en dessous');
     expect(p).toMatch(/jamais tous les énoncés puis toutes les corrections/);
+    // Order wanted by the user: useful tools first, then each statement followed by its correction.
+    expect(p).toContain('## Outils utiles');
+    expect(p.indexOf('## Outils utiles')).toBeLessThan(p.indexOf('## Exercice 1'));
+    expect(p).toContain("même s'il n'y en a qu'un");
+    expect(p).toContain('### Correction');
   }
 });
 

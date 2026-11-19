@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createAnchor } from '../../shared/anchor';
-import type { Comment, CorrectionVersion, Exercise, Id, LibraryTree, Message } from '../../shared/types';
+import type { Attachment, Comment, CorrectionVersion, Exercise, Id, LibraryTree, Message } from '../../shared/types';
 import { api, type ExerciseDetail } from '../api';
 import { go } from '../App';
 import { domSelectionToSourceRange, type SourceRange } from '../lib/selection';
-import { splitIntoSteps } from '../lib/steps';
+import { splitCorrectionSections, splitIntoSteps } from '../lib/steps';
 import { useAi } from '../lib/useAi';
 import { CommentsPanel } from './CommentsPanel';
 import { CommentThread } from './CommentThread';
@@ -234,7 +234,9 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
 
   const chapters = tree.subjects.flatMap((s) => s.chapters.map((c) => ({ id: c.id, label: `${s.name} › ${c.name}` })));
   const place = chapters.find((c) => c.id === exercise.chapterId)?.label;
-  const steps = shown && testMode ? splitIntoSteps(shown.markdown) : [];
+  const sections = shown && testMode ? splitCorrectionSections(shown.markdown) : null;
+  const steps = shown && testMode && !sections ? splitIntoSteps(shown.markdown) : [];
+  const hiddenCount = sections ? sections.filter((x) => x.hidden).length : steps.length;
   const statementMd = exercise.statementTranscription ?? exercise.statementText;
 
   return (
@@ -267,35 +269,16 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
             )}
           </header>
 
-          {/* statement */}
-          <section className="rounded-xl border border-line bg-panel p-5">
-            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Énoncé</h2>
-            {statementMd.trim() ? <Markdown source={statementMd} /> : !attachments.length && <p className="text-muted">Pas d'énoncé texte.</p>}
-            {exercise.statementTranscription && <p className="mt-2 text-xs text-muted">Énoncé recopié par Claude depuis le fichier d'origine.</p>}
-            {attachments.length > 0 && (
-              <details className="mt-3" open={!exercise.statementTranscription}>
-                <summary className="cursor-pointer text-sm text-muted">Fichiers d'origine ({attachments.length})</summary>
-                <div className="mt-2 flex flex-wrap gap-3">
-                  {attachments.map((a) => a.mime.startsWith('image/') ? (
-                    <a key={a.id} href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer">
-                      <img src={`/api/attachments/${a.id}`} alt={a.fileName} className="max-h-72 rounded-md border border-line" />
-                    </a>
-                  ) : (
-                    <a key={a.id} href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer" className="btn">📄 {a.fileName}</a>
-                  ))}
-                </div>
-              </details>
-            )}
-          </section>
-
-          {/* revision bar */}
+          {/* revision bar, first: the correction below recopies each statement right above its correction */}
           {current && (
-            <div className="mt-5 flex flex-wrap items-center gap-2 rounded-lg bg-sunken px-3 py-2 text-sm">
+            <div className="mb-5 flex flex-wrap items-center gap-2 rounded-lg bg-sunken px-3 py-2 text-sm">
               <span className="mr-auto font-medium text-muted">Réviser</span>
               {testMode ? (
                 <>
-                  {steps.length > 1 && revealed < steps.length && (
-                    <button className="btn" onClick={() => setRevealed((n) => n + 1)}>Étape suivante ({revealed}/{steps.length})</button>
+                  {hiddenCount > 1 && revealed < hiddenCount && (
+                    <button className="btn" onClick={() => setRevealed((n) => n + 1)}>
+                      {sections ? 'Correction suivante' : 'Étape suivante'} ({revealed}/{hiddenCount})
+                    </button>
                   )}
                   <button className="btn btn-primary" onClick={() => { setTestMode(false); setRevealed(0); }}>Révéler tout</button>
                 </>
@@ -311,8 +294,17 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
             <TaskBanner task={ai.tasks.check} label="Vérification de ta réponse…" onRetry={() => ai.retry('check')} onClose={() => ai.dismiss('check')} />
           )}
 
+          {/* full statement only until a correction exists; afterwards it is folded at the bottom */}
+          {!current && (
+            <section className="mb-5 rounded-xl border border-line bg-panel p-5">
+              <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-muted">Énoncé</h2>
+              {statementMd.trim() ? <Markdown source={statementMd} /> : !attachments.length && <p className="text-muted">Pas d'énoncé texte.</p>}
+              <Attachments attachments={attachments} />
+            </section>
+          )}
+
           {/* correction */}
-          <section className="mt-5">
+          <section>
             {!current ? (
               <GeneratePanel
                 instruction={instruction}
@@ -336,7 +328,9 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
                   <TaskBanner task={ai.tasks.regenerate} label="Claude réécrit la correction…" onRetry={() => ai.retry('regenerate')} onClose={() => ai.dismiss('regenerate')} />
                 )}
                 <div ref={correctionRef} className="mt-3" onMouseUp={onMouseUp}>
-                  {testMode ? (
+                  {testMode && sections ? (
+                    <TestModeSections sections={sections} revealed={revealed} onReveal={() => setRevealed((n) => n + 1)} />
+                  ) : testMode ? (
                     revealed === 0 ? (
                       <p className="rounded-lg border border-dashed border-line p-6 text-center text-muted">
                         Correction masquée. Refais l'exercice, puis révèle la correction (en entier ou étape par étape).
@@ -359,6 +353,18 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
               </>
             )}
           </section>
+
+          {current && (statementMd.trim() || attachments.length > 0) && (
+            <details className="mt-8 rounded-xl border border-line bg-panel p-4" open={testMode && !sections}>
+              <summary className="cursor-pointer text-sm font-medium text-muted">
+                Énoncé d'origine{attachments.length ? ` et fichiers (${attachments.length})` : ''}
+              </summary>
+              <div className="mt-3">
+                {statementMd.trim() && <Markdown source={statementMd} />}
+                <Attachments attachments={attachments} />
+              </div>
+            </details>
+          )}
         </article>
 
         {/* ---------- comments column ---------- */}
@@ -545,6 +551,43 @@ function HeaderMenu({ onRename, onMove, onExport, onDelete }: {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function Attachments({ attachments }: { attachments: Attachment[] }) {
+  if (!attachments.length) return null;
+  return (
+    <div className="mt-3 flex flex-wrap gap-3">
+      {attachments.map((a) => a.mime.startsWith('image/') ? (
+        <a key={a.id} href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer">
+          <img src={`/api/attachments/${a.id}`} alt={a.fileName} className="max-h-72 rounded-md border border-line" />
+        </a>
+      ) : (
+        <a key={a.id} href={`/api/attachments/${a.id}`} target="_blank" rel="noreferrer" className="btn">📄 {a.fileName}</a>
+      ))}
+    </div>
+  );
+}
+
+/** "Me tester" on a correction laid out exercise by exercise: statements stay visible, each correction is masked until revealed. */
+function TestModeSections({ sections, revealed, onReveal }: {
+  sections: { text: string; hidden: boolean }[]; revealed: number; onReveal: () => void;
+}) {
+  let hiddenIndex = 0;
+  return (
+    <div>
+      {sections.map((sec, i) => {
+        if (!sec.hidden) return <Markdown key={i} source={sec.text} />;
+        const n = hiddenIndex++;
+        if (n < revealed) return <Markdown key={i} source={sec.text} />;
+        return (
+          <div key={i} className="my-4 rounded-lg border border-dashed border-line p-4 text-center text-sm text-muted">
+            Correction masquée.
+            {n === revealed && <button className="btn ml-2" onClick={onReveal}>Révéler cette correction</button>}
+          </div>
+        );
+      })}
     </div>
   );
 }

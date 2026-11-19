@@ -23,6 +23,14 @@ export function parseHash(hash: string): Route {
 
 export const go = (hash: string) => { window.location.hash = hash; };
 
+/** Small per-browser preferences (menu folded…); storage can be unavailable, so never let it throw. */
+function readPref(key: string): string | null {
+  try { return localStorage.getItem(`revision.${key}`); } catch { return null; }
+}
+function writePref(key: string, value: string): void {
+  try { localStorage.setItem(`revision.${key}`, value); } catch { /* ignore */ }
+}
+
 export function App() {
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
   const [tree, setTree] = useState<LibraryTree>({ subjects: [] });
@@ -44,16 +52,32 @@ export function App() {
     return () => window.removeEventListener('hashchange', onHash);
   }, [reload]);
 
+  const [menuHidden, setMenuHidden] = useState(() => readPref('menuHidden') === '1');
+  const toggleMenu = (hidden: boolean) => { setMenuHidden(hidden); writePref('menuHidden', hidden ? '1' : '0'); };
+
   return (
     <div className="flex h-full">
-      <aside className="w-72 shrink-0 border-r border-line bg-panel flex flex-col">
-        <Library
-          tree={tree}
-          selectedId={route.page === 'exercise' ? route.id : null}
-          onChanged={reload}
-          storageActive={route.page === 'storage'}
-        />
-      </aside>
+      {menuHidden ? (
+        <aside className="flex w-11 shrink-0 flex-col items-center gap-3 border-r border-line bg-panel py-3">
+          <button className="btn btn-ghost px-2" onClick={() => toggleMenu(false)} aria-label="Afficher le menu" title="Afficher le menu">
+            <span aria-hidden>»</span>
+          </button>
+          <a href="#/" title="Accueil"><img src="/logo.svg" alt="" className="h-6 w-6" /></a>
+        </aside>
+      ) : (
+        <aside className="relative w-72 shrink-0 border-r border-line bg-panel flex flex-col">
+          <button className="btn btn-ghost absolute right-1 bottom-1 z-10 px-2 text-muted" onClick={() => toggleMenu(true)}
+            aria-label="Masquer le menu" title="Masquer le menu">
+            <span aria-hidden>«</span>
+          </button>
+          <Library
+            tree={tree}
+            selectedId={route.page === 'exercise' ? route.id : null}
+            onChanged={reload}
+            storageActive={route.page === 'storage'}
+          />
+        </aside>
+      )}
       <main className="flex-1 min-w-0 overflow-hidden">
         {error && <div className="m-4 rounded-md border border-danger p-3 text-danger text-sm">{error}</div>}
         {route.page === 'home' && <Home empty={tree.subjects.length === 0} />}

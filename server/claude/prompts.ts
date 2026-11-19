@@ -76,8 +76,13 @@ function threadBlock(thread: Message[]): string {
   return `<fil_du_commentaire>\n${lines.join('\n\n')}\n</fil_du_commentaire>`;
 }
 
-/** Several exercises in one statement: each correction goes right under its own exercise. */
-const LAYOUT_RULE = "Si l'énoncé contient plusieurs exercices (ou plusieurs questions indépendantes), organise la correction exercice par exercice : pour chacun, un titre « ## Exercice N » (ou « ## Question N »), son énoncé recopié en citation (lignes commençant par « > »), puis sa correction juste en dessous. Ne mets jamais tous les énoncés puis toutes les corrections.";
+/** Layout of every correction: useful tools first, then each exercise's statement with its correction right under it. */
+const LAYOUT_RULE = [
+  "Organise toujours la correction ainsi, exercice par exercice :",
+  "1. « ## Outils utiles » : les rappels de cours, formules et méthodes nécessaires pour faire les exercices (court).",
+  "2. Puis, pour chaque exercice (même s'il n'y en a qu'un) : un titre « ## Exercice 1 », « ## Exercice 2 »… (ou « ## Question N »), l'énoncé de cet exercice recopié intégralement en citation (lignes commençant par « > »), puis « ### Correction » et sa correction juste en dessous.",
+  "Ne mets jamais tous les énoncés puis toutes les corrections.",
+].join('\n');
 
 const corr = (current: string) => `<correction_actuelle>\n${current}\n</correction_actuelle>`;
 const quoteBlock = (quote: string) => `<passage_surligne>\n${quote}\n</passage_surligne>`;
