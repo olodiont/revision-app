@@ -76,6 +76,9 @@ function threadBlock(thread: Message[]): string {
   return `<fil_du_commentaire>\n${lines.join('\n\n')}\n</fil_du_commentaire>`;
 }
 
+/** Several exercises in one statement: each correction goes right under its own exercise. */
+const LAYOUT_RULE = "Si l'énoncé contient plusieurs exercices (ou plusieurs questions indépendantes), organise la correction exercice par exercice : pour chacun, un titre « ## Exercice N » (ou « ## Question N »), son énoncé recopié en citation (lignes commençant par « > »), puis sa correction juste en dessous. Ne mets jamais tous les énoncés puis toutes les corrections.";
+
 const corr = (current: string) => `<correction_actuelle>\n${current}\n</correction_actuelle>`;
 const quoteBlock = (quote: string) => `<passage_surligne>\n${quote}\n</passage_surligne>`;
 
@@ -93,6 +96,7 @@ export function buildRequest(action: AiAction, ctx: { dataDir: string; model: st
       body = [
         st.text,
         'Rédige une correction complète et pédagogique de cet exercice, étape par étape, en justifiant chaque étape.',
+        LAYOUT_RULE,
         action.instruction ? `Consigne de l'étudiant : ${action.instruction}` : '',
         sections,
       ];
@@ -102,6 +106,7 @@ export function buildRequest(action: AiAction, ctx: { dataDir: string; model: st
       body = [
         st.text, corr(action.current),
         `Réécris entièrement la correction en suivant cette consigne de l'étudiant : ${action.instruction}`,
+        LAYOUT_RULE,
         'Réponds avec une section :\n===CORRECTION===\n(la nouvelle correction complète)',
       ];
       break;

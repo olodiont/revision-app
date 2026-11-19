@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AiTask } from '../lib/useAi';
 import { Markdown } from './Markdown';
 
@@ -17,11 +17,15 @@ interface NewProps {
 /** Card for writing the first question on a freshly selected passage. */
 export function NewCommentCard({ quote, onSend, onDiagram, onCancel }: NewProps) {
   const [q, setQ] = useState('');
+  const box = useRef<HTMLTextAreaElement>(null);
+  // Focus without scrolling: the card is positioned next to its passage only after the first layout,
+  // and a plain focus (or autoFocus) would scroll the page to where it briefly sat (the top).
+  useEffect(() => { box.current?.focus({ preventScroll: true }); }, []);
   return (
     <div className="rounded-lg border border-accent bg-panel p-3 text-sm shadow-md">
       <p className="text-xs text-muted">« {shortQuote(quote)} »</p>
       <textarea
-        autoFocus
+        ref={box}
         className="field mt-2 min-h-20"
         placeholder="Ta question sur ce passage…"
         value={q}

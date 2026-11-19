@@ -13,7 +13,7 @@ import { FilePicker } from './FilePicker';
 import { Markdown } from './Markdown';
 import { Modal } from './Modal';
 import { NewCommentCard, PendingCommentCard } from './NewCommentCard';
-import { SelectionPopover } from './SelectionPopover';
+import { popoverPoint, SelectionPopover, type Point } from './SelectionPopover';
 import { VersionBar, versionLabel } from './VersionBar';
 
 interface Props { id: Id; tree: LibraryTree; onLibraryChanged: () => void }
@@ -28,7 +28,7 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [viewing, setViewing] = useState<number | null>(null);
   const [activeId, setActiveId] = useState<Id | null>(null);
-  const [selection, setSelection] = useState<{ range: SourceRange; rect: DOMRect } | null>(null);
+  const [selection, setSelection] = useState<{ range: SourceRange; point: Point } | null>(null);
   const [draft, setDraft] = useState<SourceRange | null>(null);
   /** Questions sent on a new passage, waiting for Claude: kept on screen until saved, never cancelled by another action. */
   const [pendings, setPendings] = useState<{ key: string; range: SourceRange; question: string }[]>([]);
@@ -91,13 +91,23 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
     if (!sel || sel.isCollapsed) { setSelection(null); return; }
     const range = domSelectionToSourceRange(sel, correctionRef.current);
     if (!range) { setSelection(null); return; }
-    setSelection({ range, rect: sel.getRangeAt(0).getBoundingClientRect() });
+    setSelection({ range, point: popoverPoint([...sel.getRangeAt(0).getClientRects()]) });
   };
   useEffect(() => {
     const clear = () => { if (!window.getSelection()?.toString()) setSelection(null); };
     document.addEventListener('selectionchange', clear);
-    return () => document.removeEventListener('selectionchange', clear);
-  }, []);
+    // Keep the "Commenter" button under the selection while the page scrolls.
+    const follow = () => setSelection((s) => {
+      const sel = window.getSelection();
+      return s && sel && sel.rangeCount ? { ...s, point: popoverPoint([...sel.getRangeAt(0).getClientRects()]) } : s;
+    });
+    const sc = scrollRef.current;
+    sc?.addEventListener('scroll', follow, { passive: true });
+    return () => {
+      document.removeEventListener('selectionchange', clear);
+      sc?.removeEventListener('scroll', follow);
+    };
+  }, [detail !== null]);
 
   const startDraft = (range: SourceRange) => {
     setDraft(range);
@@ -394,7 +404,7 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
         </aside>
       </div>
 
-      {selection && <SelectionPopover rect={selection.rect} onComment={() => startDraft(selection.range)} />}
+      {selection && <SelectionPopover point={selection.point} onComment={() => startDraft(selection.range)} />}
 
       {proposal && (
         <Modal wide title={proposal.kind === 'fix' ? 'Correction proposée pour ce passage' : 'Nouvelle version proposée'} onClose={() => setProposal(null)}>

@@ -74,6 +74,18 @@ test('model from ctx is forwarded', () => {
   expect(r.prompt).toContain('plus court');
 });
 
+test('generate and regenerate ask for the correction to be laid out exercise by exercise, each under its own statement', () => {
+  for (const action of [
+    { kind: 'generate' as const, exercise: ex, attachments: [], instruction: null },
+    { kind: 'regenerate' as const, exercise: ex, attachments: [], current: 'c', instruction: 'x' },
+  ]) {
+    const p = buildRequest(action, { dataDir, model: null }).prompt;
+    expect(p).toContain('exercice par exercice');
+    expect(p).toContain('juste en dessous');
+    expect(p).toMatch(/jamais tous les énoncés puis toutes les corrections/);
+  }
+});
+
 test('system prompt documents the three diagram formats', () => {
   expect(SYSTEM_PROMPT).toContain('```mermaid');
   expect(SYSTEM_PROMPT).toContain('```function-plot');

@@ -2,6 +2,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { Markdown } from '../../web/components/Markdown';
 import { FilePicker } from '../../web/components/FilePicker';
+import { NewCommentCard } from '../../web/components/NewCommentCard';
 
 afterEach(cleanup);
 
@@ -25,6 +26,14 @@ test('clicking a highlighted passage reports its comment id', () => {
     highlights={[{ start: a, end: a + 8, commentId: 7, active: false, resolved: true }]} />);
   fireEvent.click(container.querySelector('mark[data-comment-id="7"]')!);
   expect(onMarkClick).toHaveBeenCalledWith(7);
+});
+
+test('the new-comment box takes the focus without scrolling the page', () => {
+  const spy = vi.spyOn(HTMLElement.prototype, 'focus');
+  render(<NewCommentCard quote="u = ln x" onSend={() => {}} onDiagram={() => {}} onCancel={() => {}} />);
+  expect(spy).toHaveBeenCalledWith({ preventScroll: true });
+  expect(spy.mock.calls.every((c) => (c[0] as FocusOptions | undefined)?.preventScroll === true)).toBe(true);
+  spy.mockRestore();
 });
 
 test('FilePicker shows a big add-files button, lists chosen files and lets you remove one', () => {
