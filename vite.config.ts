@@ -5,5 +5,5 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: { proxy: { '/api': 'http://127.0.0.1:5317' } },
-  build: { outDir: 'dist' },
+  build: { outDir: 'dist', chunkSizeWarningLimit: 4000 },
 });

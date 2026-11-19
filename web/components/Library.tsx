@@ -130,7 +130,7 @@ export function Library({ tree, selectedId, onChanged, storageActive }: Props) {
                             <li key={item.id}>
                               <a
                                 href={`#/exo/${item.id}`}
-                                className={`block truncate rounded px-2 py-1 hover:bg-sunken ${selectedId === item.id ? 'bg-accent-soft font-medium' : ''}`}
+                                className={`block truncate rounded px-2 py-1 hover:bg-sunken ${selectedId === item.id ? 'bg-accent-soft font-medium shadow-[inset_3px_0_0_var(--color-brand)]' : ''}`}
                                 style={{ paddingLeft: `${0.5 + depth * 0.9}rem` }}
                                 title={item.title}
                               >
@@ -153,7 +153,7 @@ export function Library({ tree, selectedId, onChanged, storageActive }: Props) {
       </nav>
 
       <div className="border-t border-line p-2 text-sm">
-        <a href="#/stockage" className={`block rounded px-2 py-1.5 hover:bg-sunken ${storageActive ? 'bg-accent-soft font-medium' : ''}`}>
+        <a href="#/stockage" className={`block rounded px-2 py-1.5 hover:bg-sunken ${storageActive ? 'bg-accent-soft font-medium shadow-[inset_3px_0_0_var(--color-brand)]' : ''}`}>
           Stockage et réglages
         </a>
       </div>

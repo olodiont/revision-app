@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { streamSSE } from 'hono/streaming';
 import type { AppConfig } from './config';
 import { openDb, type Db } from './db/schema';
 import { dataPaths, ensureDataDir } from './files/storage';
@@ -14,6 +15,8 @@ export interface AppDeps {
   configPath: string;
   provider: ClaudeProvider;
   openPath: (p: string) => void;
+  /** Tracks open app pages so the server can stop when the last one closes (absent in tests/demo). */
+  presence?: { join: () => () => void };
 }
 
 /**
@@ -56,6 +59,19 @@ export function createApp(deps: AppDeps): Hono {
   });
 
   app.get('/api/health', (c) => c.json({ ok: true }));
+
+  // Each open page keeps this stream open. It lets the server stop when the app is closed,
+  // and lets the page notice when the server (its console window) was closed.
+  app.get('/api/presence', (c) => streamSSE(c, async (stream) => {
+    const leave = deps.presence?.join() ?? (() => {});
+    let closed = false;
+    stream.onAbort(() => { closed = true; leave(); });
+    await stream.writeSSE({ event: 'hello', data: '{}' });
+    while (!closed) {
+      await stream.sleep(15_000);
+      if (!closed) await stream.writeSSE({ event: 'ping', data: '{}' });
+    }
+  }));
   app.route('/api', libraryRoutes(deps));
   app.route('/api', commentRoutes(deps));
   app.route('/api', aiRoutes(deps));

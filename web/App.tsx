@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Id, LibraryTree } from '../shared/types';
 import { api } from './api';
+import { watchServer } from './lib/presence';
 import { ExerciseView } from './components/ExerciseView';
 import { Library } from './components/Library';
+import { Spark } from './components/Spark';
 import { NewExerciseForm } from './components/NewExerciseForm';
 import { StoragePage } from './components/StoragePage';
 
@@ -45,6 +47,13 @@ export function App() {
     }
   }, []);
 
+  // When the console (server) is closed, close this window too, or say so if the browser refuses.
+  const [serverGone, setServerGone] = useState(false);
+  useEffect(() => {
+    if (typeof EventSource === 'undefined') return;
+    return watchServer(() => { setServerGone(true); window.close(); });
+  }, []);
+
   useEffect(() => {
     const onHash = () => setRoute(parseHash(window.location.hash));
     window.addEventListener('hashchange', onHash);
@@ -54,6 +63,18 @@ export function App() {
 
   const [menuHidden, setMenuHidden] = useState(() => readPref('menuHidden') === '1');
   const toggleMenu = (hidden: boolean) => { setMenuHidden(hidden); writePref('menuHidden', hidden ? '1' : '0'); };
+
+  if (serverGone) {
+    return (
+      <div className="grid h-full place-items-center p-8 text-center">
+        <div className="max-w-sm space-y-3">
+          <img src="/logo.svg" alt="" className="mx-auto h-14 w-14" />
+          <h1 className="text-xl font-semibold">Révision est fermée</h1>
+          <p className="text-muted">Tu peux fermer cette fenêtre. Pour reprendre, relance l'app avec le raccourci du Bureau.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full">
@@ -78,7 +99,7 @@ export function App() {
           />
         </aside>
       )}
-      <main className="flex-1 min-w-0 overflow-hidden">
+      <main className="grid-paper flex-1 min-w-0 overflow-hidden">
         {error && <div className="m-4 rounded-md border border-danger p-3 text-danger text-sm">{error}</div>}
         {route.page === 'home' && <Home empty={tree.subjects.length === 0} />}
         {route.page === 'exercise' && <ExerciseView key={route.id} id={route.id} tree={tree} onLibraryChanged={reload} />}
@@ -97,18 +118,21 @@ export function App() {
 
 function Home({ empty }: { empty: boolean }) {
   return (
-    <div className="h-full grid place-items-center p-8 text-center">
-      <div className="max-w-md space-y-3">
-        <img src="/logo.svg" alt="" className="mx-auto h-16 w-16" />
-        <h1 className="text-2xl font-semibold">Révision</h1>
-        <p className="text-muted">
-          {empty
-            ? 'Commence par créer une matière, puis un chapitre, dans la colonne de gauche.'
-            : 'Choisis un exercice à gauche, ou ajoute-en un dans un chapitre avec le bouton « + exo ».'}
-        </p>
-        <p className="text-muted text-sm">
-          Surligne un passage de la correction pour poser une question dessus : la réponse s'affiche en commentaire, dans la marge.
-        </p>
+    <div className="relative h-full overflow-hidden">
+      <Spark className="pointer-events-none absolute -left-16 -top-20 h-72 w-72 opacity-95" />
+      <Spark className="pointer-events-none absolute -bottom-24 right-10 h-80 w-80 rotate-12 opacity-95" />
+      <div className="relative grid h-full place-items-center p-8">
+        <div className="max-w-xl text-center">
+          <h1 className="font-display text-6xl font-bold leading-none tracking-tight">Révision</h1>
+          <p className="mt-5 text-lg text-muted">
+            Demande une correction, sélectionne un passage, pose ta question dans la marge.
+          </p>
+          <p className="mt-8 text-sm text-muted">
+            {empty
+              ? 'Pour commencer, crée une matière avec « + matière » dans le menu, puis un chapitre.'
+              : 'Choisis un exercice dans le menu, ou ajoute-en un avec « + exo » sur un chapitre.'}
+          </p>
+        </div>
       </div>
     </div>
   );

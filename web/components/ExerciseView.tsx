@@ -243,11 +243,11 @@ export function ExerciseView({ id, tree, onLibraryChanged }: Props) {
     <div ref={scrollRef} className="h-full overflow-y-auto" onClick={() => { setActiveId(null); }}>
       <div className={`mx-auto flex max-w-[1180px] ${wide ? 'flex-row gap-8 px-8' : 'flex-col gap-6 px-5'} py-6`}>
         {/* ---------- main column ---------- */}
-        <article className={`min-w-0 flex-1 ${wide ? 'max-w-[720px]' : ''}`} onClick={(e) => e.stopPropagation()}>
+        <article className={`min-w-0 flex-1 rounded-2xl border border-line bg-panel shadow-sm ${wide ? 'max-w-[760px] px-10 py-8' : 'px-5 py-6'}`} onClick={(e) => e.stopPropagation()}>
           <header className="mb-5 space-y-2">
             <p className="text-sm text-muted">{place}</p>
             <div className="flex flex-wrap items-start gap-2">
-              <h1 className="mr-auto text-2xl font-semibold leading-tight">{exercise.title}</h1>
+              <h1 className="mr-auto font-display text-3xl font-bold leading-tight tracking-tight">{exercise.title}</h1>
               <HeaderMenu
                 onRename={async () => {
                   const t = prompt('Nouveau titre', exercise.title)?.trim();

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently -k -n server,web \"tsx watch server/index.ts\" \"vite\"",
     "build": "vite build",
-    "start": "npm run build && tsx server/index.ts",
+    "start": "node scripts/ensure-build.mjs && tsx server/index.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

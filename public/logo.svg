@@ -1,20 +1,20 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Révision">
   <title>Révision</title>
-  <!-- background -->
-  <rect width="64" height="64" rx="14" fill="#2f6f62"/>
+  <!-- background: Claude orange -->
+  <rect width="64" height="64" rx="14" fill="#d97757"/>
   <!-- the correction page -->
-  <rect x="10" y="11" width="31" height="42" rx="4" fill="#fffdf9"/>
-  <rect x="15" y="18" width="21" height="3" rx="1.5" fill="#cfc8bb"/>
-  <rect x="14" y="25.5" width="19" height="6" rx="2" fill="#f5c84c"/>
-  <rect x="15" y="27" width="16" height="3" rx="1.5" fill="#8a6d16" opacity=".55"/>
-  <rect x="15" y="36" width="19" height="3" rx="1.5" fill="#cfc8bb"/>
-  <rect x="15" y="43" width="12" height="3" rx="1.5" fill="#cfc8bb"/>
+  <rect x="10" y="11" width="31" height="42" rx="4" fill="#ffffff"/>
+  <rect x="15" y="18" width="21" height="3" rx="1.5" fill="#e3ddd0"/>
+  <rect x="14" y="25.5" width="19" height="6" rx="2" fill="#f7d56e"/>
+  <rect x="15" y="27" width="16" height="3" rx="1.5" fill="#8a6d16" opacity=".5"/>
+  <rect x="15" y="36" width="19" height="3" rx="1.5" fill="#e3ddd0"/>
+  <rect x="15" y="43" width="12" height="3" rx="1.5" fill="#e3ddd0"/>
   <!-- link from the highlighted passage to its comment -->
-  <path d="M33 28.5 H38" stroke="#f5c84c" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M33 28.5 H38" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round"/>
   <!-- comment bubble in the margin -->
   <path d="M38 19 h15 a5 5 0 0 1 5 5 v9 a5 5 0 0 1 -5 5 h-8 l-5 5 v-5 h-2 a5 5 0 0 1 -5 -5 v-9 a5 5 0 0 1 5 -5 z"
-        fill="#f5c84c" stroke="#2f6f62" stroke-width="2.5" stroke-linejoin="round"/>
-  <circle cx="41.5" cy="28.5" r="1.9" fill="#2f6f62"/>
-  <circle cx="46.5" cy="28.5" r="1.9" fill="#2f6f62"/>
-  <circle cx="51.5" cy="28.5" r="1.9" fill="#2f6f62"/>
+        fill="#faf9f5" stroke="#141413" stroke-width="2.2" stroke-linejoin="round"/>
+  <circle cx="41.5" cy="28.5" r="1.9" fill="#d97757"/>
+  <circle cx="46.5" cy="28.5" r="1.9" fill="#d97757"/>
+  <circle cx="51.5" cy="28.5" r="1.9" fill="#d97757"/>
 </svg>
