@@ -2,11 +2,14 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { defaultConfigPath, loadConfig } from './config';
 import { createApp } from './app';
-import { openInExplorer } from './files/storage';
+import { dataPaths, ensureDataDir, openInExplorer } from './files/storage';
+import { createCliProvider } from './claude/cliProvider';
 
 const configPath = defaultConfigPath();
 const config = loadConfig(configPath);
-const app = createApp({ config, configPath, provider: undefined, openPath: openInExplorer });
+ensureDataDir(config.dataDir);
+const provider = createCliProvider({ cwd: dataPaths(config.dataDir).claudeCwd });
+const app = createApp({ config, configPath, provider, openPath: openInExplorer });
 
 app.use('/*', serveStatic({ root: './dist' }));
 app.get('*', serveStatic({ path: './dist/index.html' }));

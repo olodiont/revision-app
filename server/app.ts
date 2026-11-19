@@ -2,12 +2,15 @@ import { Hono } from 'hono';
 import type { AppConfig } from './config';
 import { openDb, type Db } from './db/schema';
 import { dataPaths, ensureDataDir } from './files/storage';
+import type { ClaudeProvider } from './claude/provider';
+import { aiRoutes } from './routes/ai';
+import { commentRoutes } from './routes/comments';
 import { libraryRoutes } from './routes/library';
 
 export interface AppDeps {
   config: AppConfig;
   configPath: string;
-  provider: unknown;
+  provider: ClaudeProvider;
   openPath: (p: string) => void;
 }
 
@@ -30,6 +33,8 @@ export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
   app.get('/api/health', (c) => c.json({ ok: true }));
   app.route('/api', libraryRoutes(deps));
+  app.route('/api', commentRoutes(deps));
+  app.route('/api', aiRoutes(deps));
   app.onError((err, c) => {
     console.error(err);
     return c.json({ message: 'Erreur interne du serveur.' }, 500);
