@@ -2,10 +2,11 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { defaultConfigPath, loadConfig } from './config';
 import { createApp } from './app';
+import { openInExplorer } from './files/storage';
 
 const configPath = defaultConfigPath();
 const config = loadConfig(configPath);
-const app = createApp({ db: undefined, config, configPath, provider: undefined, openPath: () => {} });
+const app = createApp({ config, configPath, provider: undefined, openPath: openInExplorer });
 
 app.use('/*', serveStatic({ root: './dist' }));
 app.get('*', serveStatic({ path: './dist/index.html' }));

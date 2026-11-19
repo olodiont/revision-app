@@ -4,7 +4,7 @@ export type Db = DatabaseSync;
 
 export function openDb(file: string): Db {
   const db = new DatabaseSync(file);
-  db.exec('PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;');
+  db.exec('PRAGMA foreign_keys = ON;');
   migrate(db);
   return db;
 }
