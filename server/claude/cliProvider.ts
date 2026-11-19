@@ -1,7 +1,7 @@
 /*
  * Calls the Claude Code CLI in print mode with the user's own subscription.
  *
- * Flags used (to re-check with `claude --help` once the CLI is installed — plan Task 14):
+ * Flags used (all checked against `claude --help` of Claude Code 2.1.328):
  *   -p                              non-interactive, prompt read from stdin
  *   --output-format stream-json     one JSON event per line (needs --verbose)
  *   --include-partial-messages      text deltas while the answer is written
@@ -12,8 +12,19 @@
  *   --no-session-persistence        do not keep a transcript of the call on disk
  *   --strict-mcp-config             ignore the user's MCP servers (fewer tokens, no side effects)
  *   --disable-slash-commands        do not load the user's skills (fewer tokens)
+ *   --setting-sources ""            ignore the user's settings files (permission allow-rules, hooks):
+ *                                   only the folders given with --add-dir are readable
  */
 import { spawn as nodeSpawn } from 'node:child_process';
+import { existsSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
+/** The native installer puts claude in ~/.local/bin, which may not be on the PATH of an already open terminal. */
+export function findClaudeCommand(home = homedir()): string {
+  const exe = join(home, '.local', 'bin', process.platform === 'win32' ? 'claude.exe' : 'claude');
+  return existsSync(exe) ? exe : 'claude';
+}
 import { createInterface } from 'node:readline';
 import { ERROR_MESSAGES_FR, type ClaudeErrorCode, type ClaudeEvent, type ClaudeProvider, type ClaudeRequest } from './provider';
 
@@ -35,6 +46,7 @@ export function buildArgs(req: ClaudeRequest): string[] {
     '--no-session-persistence',
     '--strict-mcp-config',
     '--disable-slash-commands',
+    '--setting-sources', '',
   ];
   for (const dir of req.readableDirs) args.push('--add-dir', dir);
   if (req.model) args.push('--model', req.model);

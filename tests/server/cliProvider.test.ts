@@ -60,6 +60,10 @@ test('spawns claude with -p, stream-json, appended system prompt, Read-only tool
   expect(args[args.indexOf('--add-dir') + 1]).toBe('C:/data/fichiers/1');
   expect(args[args.indexOf('--model') + 1]).toBe('claude-opus-5-5');
   expect(args).toContain('--no-session-persistence');
+  // The user's own Claude Code settings (allow rules, hooks) must not apply to the app's calls.
+  expect(args[args.indexOf('--setting-sources') + 1]).toBe('');
+  expect(args).toContain('--strict-mcp-config');
+  expect(args).toContain('--disable-slash-commands');
   expect(args).not.toContain('Bonjour');
   expect(opts.cwd).toBe('C:/data/claude-cwd');
   expect(opts.shell).toBe(false);
