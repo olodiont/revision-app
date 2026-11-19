@@ -5,7 +5,7 @@ import { createApp } from './app';
 import { dataPaths, ensureDataDir, openInExplorer } from './files/storage';
 import { createCliProvider } from './claude/cliProvider';
 
-const configPath = defaultConfigPath();
+const configPath = process.env.REVISION_CONFIG ?? defaultConfigPath();
 const config = loadConfig(configPath);
 ensureDataDir(config.dataDir);
 const provider = createCliProvider({ cwd: dataPaths(config.dataDir).claudeCwd });
