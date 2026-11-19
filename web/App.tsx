@@ -70,7 +70,7 @@ export function App() {
         <div className="max-w-sm space-y-3">
           <img src="/logo.svg" alt="" className="mx-auto h-14 w-14" />
           <h1 className="text-xl font-semibold">Révision est fermée</h1>
-          <p className="text-muted">Tu peux fermer cette fenêtre. Pour reprendre, relance l'app avec le raccourci du Bureau.</p>
+          <p className="text-muted">Tu peux fermer cet onglet. Pour reprendre, relance l'app avec le raccourci du Bureau.</p>
         </div>
       </div>
     );
