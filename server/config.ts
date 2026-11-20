@@ -2,10 +2,16 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
+export type Connection = 'claude-code' | 'api';
+
 export interface AppConfig {
   dataDir: string;
   model: string | null;
   port: number;
+  /** How Claude is reached: the user's Claude Code (subscription) or an Anthropic API key. */
+  connection?: Connection;
+  /** Anthropic API key, only used in 'api' mode. Stays in this local file, never sent to the page. */
+  apiKey?: string | null;
 }
 
 export function defaultConfig(): AppConfig {

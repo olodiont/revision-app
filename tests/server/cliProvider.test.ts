@@ -36,7 +36,7 @@ function finish(child: FakeChild, out: string, code = 0) {
 }
 
 const req = (over: Partial<ClaudeRequest> = {}): ClaudeRequest => ({
-  systemPrompt: 'SYS', prompt: 'Bonjour', readableDirs: ['C:/data/fichiers/1'], model: null, ...over,
+  systemPrompt: 'SYS', prompt: 'Bonjour', readableDirs: ['C:/data/fichiers/1'], files: [], model: null, ...over,
 });
 
 async function collect(it: AsyncIterable<ClaudeEvent>): Promise<ClaudeEvent[]> {

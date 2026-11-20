@@ -46,9 +46,10 @@ const VISUAL_MIMES = new Set(['image/png', 'image/jpeg', 'image/webp', 'image/gi
 
 function statementBlock(
   exercise: Exercise, attachments: Attachment[], dataDir: string, forceFiles: boolean,
-): { text: string; dirs: string[] } {
+): { text: string; dirs: string[]; files: string[] } {
   const parts: string[] = [];
   const dirs = new Set<string>();
+  const files: string[] = [];
   parts.push(`Titre : ${exercise.title}`);
   if (exercise.statementTranscription && !forceFiles) {
     parts.push(exercise.statementTranscription);
@@ -56,18 +57,19 @@ function statementBlock(
     if (exercise.statementText.trim()) parts.push(exercise.statementText);
     const visual = attachments.filter((a) => VISUAL_MIMES.has(a.mime));
     if (visual.length) {
-      parts.push('Fichiers de l\'énoncé à lire avec l\'outil Read :');
+      parts.push('Fichiers de l\'énoncé (joints à ce message ; sinon, lis-les avec l\'outil Read) :');
       for (const a of visual) {
         const p = absolutePath(dataDir, a.relPath);
         parts.push(`- ${p}`);
         dirs.add(dirname(p));
+        files.push(p);
       }
     }
   }
   for (const a of attachments) {
     if (a.extractedText) parts.push(`Contenu de ${a.fileName} :\n${a.extractedText}`);
   }
-  return { text: `<enonce>\n${parts.join('\n\n')}\n</enonce>`, dirs: [...dirs] };
+  return { text: `<enonce>\n${parts.join('\n\n')}\n</enonce>`, dirs: [...dirs], files };
 }
 
 function threadBlock(thread: Message[]): string {
@@ -91,6 +93,7 @@ export function buildRequest(action: AiAction, ctx: { dataDir: string; model: st
   const hasVisual = action.attachments.some((a) => VISUAL_MIMES.has(a.mime));
   const st = statementBlock(action.exercise, action.attachments, ctx.dataDir, action.kind === 'generate');
   const readableDirs = [...st.dirs];
+  const files = [...st.files];
   let body: string[];
 
   switch (action.kind) {
@@ -145,14 +148,15 @@ export function buildRequest(action: AiAction, ctx: { dataDir: string; model: st
       ];
       break;
     case 'check': {
-      const files = action.answerFiles.length
-        ? `Fichiers de la réponse de l'étudiant à lire avec l'outil Read :\n${action.answerFiles.map((f) => `- ${f}`).join('\n')}`
+      const answerList = action.answerFiles.length
+        ? `Fichiers de la réponse de l'étudiant (joints à ce message ; sinon, lis-les avec l'outil Read) :\n${action.answerFiles.map((f) => `- ${f}`).join('\n')}`
         : '';
       for (const f of action.answerFiles) if (!readableDirs.includes(dirname(f))) readableDirs.push(dirname(f));
+      files.push(...action.answerFiles);
       body = [
         st.text, corr(action.current),
         action.answerText ? `<reponse_etudiant>\n${action.answerText}\n</reponse_etudiant>` : '',
-        files,
+        answerList,
         'Compare la réponse de l\'étudiant à la correction. Dis ce qui est juste, puis précisément où ça coince et pourquoi, sans redonner toute la correction.',
       ];
       break;
@@ -163,6 +167,7 @@ export function buildRequest(action: AiAction, ctx: { dataDir: string; model: st
     systemPrompt: SYSTEM_PROMPT,
     prompt: body.filter((s) => s && s.trim()).join('\n\n'),
     readableDirs,
+    files,
     model: ctx.model,
   };
 }

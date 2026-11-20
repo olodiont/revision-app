@@ -23,6 +23,9 @@ export function storageRoutes(deps: AppDeps): Hono {
       claudeHistoryDir: history,
       claudeHistoryBytes: folderSize(history),
       model: deps.config.model,
+      connection: deps.config.connection ?? 'claude-code',
+      // Only whether a key exists: the key itself never leaves the server.
+      hasApiKey: !!deps.config.apiKey,
     });
   });
 
@@ -40,8 +43,14 @@ export function storageRoutes(deps: AppDeps): Hono {
   });
 
   r.put('/settings', async (c) => {
-    const body = await c.req.json<{ model?: string | null; dataDir?: string }>();
+    const body = await c.req.json<{ model?: string | null; dataDir?: string; connection?: string; apiKey?: string | null }>();
     let message = 'Réglages enregistrés.';
+    if (body.connection !== undefined) {
+      if (body.connection !== 'claude-code' && body.connection !== 'api') return c.json({ message: 'Mode de connexion inconnu.' }, 400);
+      deps.config.connection = body.connection;
+    }
+    // Absent = keep the saved key; empty string = remove it.
+    if (body.apiKey !== undefined) deps.config.apiKey = body.apiKey && body.apiKey.trim() ? body.apiKey.trim() : null;
     if (body.model !== undefined) deps.config.model = body.model && body.model.trim() ? body.model.trim() : null;
     if (body.dataDir !== undefined && body.dataDir.trim()) {
       const next = resolve(body.dataDir.trim());

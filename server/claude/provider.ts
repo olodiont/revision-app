@@ -3,6 +3,8 @@ export interface ClaudeRequest {
   prompt: string;
   /** Folders Claude may read (attachments). Nothing else is readable. */
   readableDirs: string[];
+  /** Images and PDFs to show Claude (absolute paths): attached directly in API mode, read with the Read tool by Claude Code. */
+  files: string[];
   model: string | null;
   signal?: AbortSignal;
 }

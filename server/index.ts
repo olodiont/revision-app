@@ -5,6 +5,8 @@ import { mountStatic } from './static';
 import { dataPaths, ensureDataDir, openInExplorer } from './files/storage';
 import { createCliProvider, findClaudeCommand } from './claude/cliProvider';
 import { createPresence } from './presence';
+import { createApiProvider } from './claude/apiProvider';
+import { createSwitchProvider } from './claude/switchProvider';
 
 const configPath = process.env.REVISION_CONFIG ?? defaultConfigPath();
 const config = loadConfig(configPath);
@@ -22,7 +24,10 @@ function shutdown(reason: string): void {
 }
 
 const presence = createPresence({ graceMs: 5000, onIdle: () => shutdown("Plus aucune page de l'app n'est ouverte.") });
-const provider = createCliProvider({ cwd: () => dataPaths(config.dataDir).claudeCwd, command: findClaudeCommand() });
+const cliProvider = createCliProvider({ cwd: () => dataPaths(config.dataDir).claudeCwd, command: findClaudeCommand() });
+const apiProvider = createApiProvider({ apiKey: () => config.apiKey ?? process.env.ANTHROPIC_API_KEY ?? null });
+// Claude Code (your subscription, personal use) or an Anthropic API key, as chosen in "Stockage et réglages".
+const provider = createSwitchProvider(() => (config.connection === 'api' ? apiProvider : cliProvider));
 const app = createApp({ config, configPath, provider, openPath: openInExplorer, presence });
 
 mountStatic(app);

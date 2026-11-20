@@ -53,6 +53,26 @@ test('PUT /api/settings saves the model and a new data folder, and the next requ
   expect(saved).toMatchObject({ model: 'claude-sonnet-5-5', dataDir: newDir });
 });
 
+test('the API key mode can be chosen and the key is saved but never sent back to the page', async () => {
+  const { json, deps } = testApp();
+  expect((await json('GET', '/api/storage')).body).toMatchObject({ connection: 'claude-code', hasApiKey: false });
+  await json('PUT', '/api/settings', { connection: 'api', apiKey: '  sk-ant-test-123  ' });
+  const info = (await json('GET', '/api/storage')).body;
+  expect(info).toMatchObject({ connection: 'api', hasApiKey: true });
+  expect(JSON.stringify(info)).not.toContain('sk-ant-test-123');
+  expect(deps.config.apiKey).toBe('sk-ant-test-123');
+  // Saving other settings without the key keeps it; an empty string removes it.
+  await json('PUT', '/api/settings', { model: 'claude-sonnet-5-5' });
+  expect(deps.config.apiKey).toBe('sk-ant-test-123');
+  await json('PUT', '/api/settings', { apiKey: '' });
+  expect(deps.config.apiKey).toBeNull();
+});
+
+test('an unknown connection mode is refused', async () => {
+  const { json } = testApp();
+  expect((await json('PUT', '/api/settings', { connection: 'other' })).status).toBe(400);
+});
+
 test('PUT /api/settings with empty model resets to Claude Code default', async () => {
   const { json, deps } = testApp();
   await json('PUT', '/api/settings', { model: 'x' });

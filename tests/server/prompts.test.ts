@@ -91,6 +91,18 @@ test('generate and regenerate ask for the correction to be laid out exercise by 
   }
 });
 
+test('files lists the images/PDFs to show Claude (attached directly in API mode)', () => {
+  const gen = buildRequest({ kind: 'generate', exercise: ex, attachments: [png, docx], instruction: null }, { dataDir, model: null });
+  expect(gen.files).toEqual([join(dataDir, 'fichiers', '7', 'sujet.png')]);
+  const withTranscription = buildRequest({
+    kind: 'comment', exercise: { ...ex, statementTranscription: 'T' }, attachments: [png], current: 'c', quote: 'q', thread: [], question: 'x',
+  }, { dataDir, model: null });
+  expect(withTranscription.files).toEqual([]);
+  const ans = join(dataDir, 'fichiers', '7', 'reponses', 'copie.jpg');
+  const check = buildRequest({ kind: 'check', exercise: ex, attachments: [], current: 'c', answerText: null, answerFiles: [ans] }, { dataDir, model: null });
+  expect(check.files).toEqual([ans]);
+});
+
 test('system prompt documents the three diagram formats', () => {
   expect(SYSTEM_PROMPT).toContain('```mermaid');
   expect(SYSTEM_PROMPT).toContain('```function-plot');
