@@ -75,12 +75,14 @@ export function CommentsPanel({ comments, correctionRef, scrollRef, renderThread
     return () => ro.disconnect();
   });
 
-  // Bring the opened comment into view (needed on narrow screens, where comments are listed below the correction).
+  // On narrow screens comments are listed below the correction: bring the opened one into view.
+  // Beside the correction the card already sits next to its passage, so never scroll there: a card that
+  // just appeared is briefly at the top of the margin, and scrolling to it sent the page back to the top.
   useEffect(() => {
-    if (activeId === null) return;
+    if (activeId === null || aligned) return;
     const t = setTimeout(() => cardRefs.current[`c${activeId}`]?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }), 60);
     return () => clearTimeout(t);
-  }, [activeId]);
+  }, [activeId, aligned]);
 
   void scrollRef;
   void layoutKey;
@@ -90,8 +92,10 @@ export function CommentsPanel({ comments, correctionRef, scrollRef, renderThread
       {aligned ? (
         <div className="relative" style={{ height }}>
           {items.map((it) => (
-            <div key={it.key} ref={(el) => { cardRefs.current[it.key] = el; }} className="absolute left-0 right-0 transition-[top] duration-150"
-              style={{ top: tops[it.key] ?? 0 }}>
+            <div key={it.key} ref={(el) => { cardRefs.current[it.key] = el; }}
+              className={`absolute left-0 right-0 ${tops[it.key] === undefined ? '' : 'transition-[top] duration-150'}`}
+              // A new card stays invisible until it is placed next to its passage (no slide from the top).
+              style={{ top: tops[it.key] ?? 0, visibility: tops[it.key] === undefined ? 'hidden' : undefined }}>
               {it.node()}
             </div>
           ))}
